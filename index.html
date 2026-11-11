@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="color-scheme" content="dark">
+  <title>Viewport Measure</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500&display=swap" rel="stylesheet">
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 773px;
+      height: 601px;
+      overflow: hidden;
+      background: #000;
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-weight: 500;
+      letter-spacing: 0;
+      color: #eee;
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    * { box-sizing: border-box; }
+    #stage {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 773px;
+      height: 601px;
+      background: #111111;
+      overflow: hidden;
+      touch-action: none;
+    }
+    #grid {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 773px;
+      height: 601px;
+      pointer-events: none;
+      z-index: 1;
+    }
+    #video {
+      position: absolute;
+      pointer-events: none;
+      z-index: 2;
+      display: none;
+      background: rgba(56, 140, 255, 0.16);
+      border: 1px solid rgba(120, 180, 255, 0.55);
+    }
+    #video-label {
+      position: absolute;
+      height: 20px;
+      line-height: 20px;
+      text-align: center;
+      font-size: 14px;
+      color: rgba(200, 220, 255, 0.95);
+      pointer-events: none;
+      z-index: 2;
+      display: none;
+      text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+    }
+    #guide60 {
+      position: absolute;
+      left: 0;
+      top: 361px;
+      width: 773px;
+      height: 0;
+      border-top: 1px dashed rgba(255, 190, 70, 0.85);
+      pointer-events: none;
+      z-index: 3;
+    }
+    #guide60-label {
+      position: absolute;
+      right: 8px;
+      top: 345px;
+      height: 16px;
+      line-height: 16px;
+      font-size: 11px;
+      color: rgba(255, 200, 90, 0.95);
+      pointer-events: none;
+      z-index: 3;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+    }
+    #boxes {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 773px;
+      height: 601px;
+      z-index: 4;
+      pointer-events: none;
+    }
+    .box {
+      position: absolute;
+      pointer-events: auto;
+      overflow: visible;
+      border: 2px solid;
+    }
+    .box-xy {
+      position: absolute;
+      top: 3px;
+      left: 5px;
+      font-size: 11px;
+      line-height: 14px;
+      color: rgba(255, 255, 255, 0.9);
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+      pointer-events: none;
+      white-space: nowrap;
+    }
+    .box-size {
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      left: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      line-height: 20px;
+      color: #fff;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
+      pointer-events: none;
+      white-space: nowrap;
+    }
+    .box.selected {
+      z-index: 5;
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.35);
+    }
+    .box-handle {
+      display: none;
+      position: absolute;
+      right: 0;
+      bottom: 0;
+      width: 28px;
+      height: 28px;
+      cursor: nwse-resize;
+      z-index: 3;
+    }
+    .box-handle::after {
+      content: "";
+      position: absolute;
+      right: 2px;
+      bottom: 2px;
+      width: 14px;
+      height: 14px;
+      background: #fff;
+      border: 2px solid #111;
+      border-radius: 2px;
+    }
+    .box.selected .box-handle { display: block; }
+    .box-delete {
+      display: none;
+      position: absolute;
+      top: -10px;
+      right: -10px;
+      width: 32px;
+      height: 32px;
+      border: 0;
+      border-radius: 16px;
+      background: #d13b2e;
+      color: #fff;
+      font-family: inherit;
+      font-weight: 500;
+      font-size: 20px;
+      letter-spacing: 0;
+      line-height: 32px;
+      text-align: center;
+      padding: 0;
+      cursor: pointer;
+      z-index: 4;
+    }
+    .box.selected .box-delete { display: block; }
+    .box.delete-inside .box-delete { top: 4px; right: 4px; }
+    .box.delete-flip .box-delete { right: auto; left: -10px; }
+    .box.delete-inside.delete-flip .box-delete { left: 4px; right: auto; }
+    #bar {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 773px;
+      height: 48px;
+      background: #1a1a1a;
+      border-bottom: 1px solid #333;
+      z-index: 10;
+    }
+    #readout {
+      position: absolute;
+      left: 8px;
+      top: 2px;
+      width: 411px;
+      height: 44px;
+      line-height: 44px;
+      font-size: 12px;
+      color: #d0d0d0;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+    #readout .num { color: #fff; }
+    #readout.mismatch .num { color: #ffb020; }
+    #btn-undo, #btn-clear, #btn-snap, #btn-video, #btn-export {
+      position: absolute;
+      top: 2px;
+      height: 44px;
+      margin: 0;
+      padding: 0;
+      border: 0;
+      border-radius: 8px;
+      background: #2c2c2c;
+      color: #f0f0f0;
+      font-family: inherit;
+      font-weight: 500;
+      font-size: 13px;
+      letter-spacing: 0;
+      line-height: 44px;
+      text-align: center;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+    #btn-undo:active, #btn-clear:active, #btn-snap:active,
+    #btn-video:active, #btn-export:active {
+      background: #3a3a3a;
+    }
+    #btn-undo { left: 427px; width: 60px; }
+    #btn-clear { left: 492px; width: 64px; }
+    #btn-snap { left: 561px; width: 60px; }
+    #btn-video { left: 626px; width: 64px; }
+    #btn-export { left: 695px; width: 70px; }
+    #btn-snap.on, #btn-video.on {
+      background: #3e6ae1;
+      color: #fff;
+    }
+    #overlay {
+      display: none;
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 773px;
+      height: 601px;
+      background: rgba(0, 0, 0, 0.62);
+      z-index: 20;
+    }
+    #panel {
+      position: absolute;
+      left: 136px;
+      top: 136px;
+      width: 500px;
+      height: 328px;
+      background: #1c1c1c;
+      border: 1px solid #3a3a3a;
+      border-radius: 10px;
+    }
+    #panel-title {
+      position: absolute;
+      left: 16px;
+      top: 12px;
+      height: 24px;
+      line-height: 24px;
+      font-size: 16px;
+      color: #fff;
+    }
+    #panel-status {
+      position: absolute;
+      left: 16px;
+      top: 38px;
+      height: 18px;
+      line-height: 18px;
+      font-size: 12px;
+      color: #9ad07a;
+    }
+    #panel-status.fail { color: #ffb020; }
+    #export-text {
+      position: absolute;
+      left: 16px;
+      top: 62px;
+      width: 468px;
+      height: 200px;
+      margin: 0;
+      padding: 10px;
+      border: 1px solid #333;
+      border-radius: 6px;
+      background: #121212;
+      color: #e8e8e8;
+      font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: 0;
+      line-height: 18px;
+      resize: none;
+      -webkit-user-select: text;
+      user-select: text;
+    }
+    #btn-close {
+      position: absolute;
+      left: 16px;
+      top: 272px;
+      width: 120px;
+      height: 44px;
+      margin: 0;
+      padding: 0;
+      border: 0;
+      border-radius: 8px;
+      background: #3e6ae1;
+      color: #fff;
+      font-family: inherit;
+      font-weight: 500;
+      font-size: 14px;
+      letter-spacing: 0;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <canvas id="grid" width="773" height="601"></canvas>
+    <div id="video"></div>
+    <div id="video-label"></div>
+    <div id="guide60"></div>
+    <div id="guide60-label">60% · y=361</div>
+    <div id="boxes"></div>
+    <div id="bar">
+      <div id="readout"></div>
+      <button type="button" id="btn-undo">Undo</button>
+      <button type="button" id="btn-clear">Clear</button>
+      <button type="button" id="btn-snap" class="on">Snap</button>
+      <button type="button" id="btn-video">Video</button>
+      <button type="button" id="btn-export">Export</button>
+    </div>
+    <div id="overlay">
+      <div id="panel">
+        <div id="panel-title">Export</div>
+        <div id="panel-status"></div>
+        <textarea id="export-text" spellcheck="false"></textarea>
+        <button type="button" id="btn-close">Close</button>
+      </div>
+    </div>
+  </div>
+  <script>
+    (function () {
+      const STAGE_W = 773;
+      const STAGE_H = 601;
+      const BAR_H = 48;
+      const GRID = 10;
+      const MIN_DRAG = 20;
+      const HANDLE = 28;
+      const DELETE = 32;
+      const STORAGE_KEY = "highland-viewport-boxes";
+      const PALETTE = [
+        { fill: "rgba(56, 160, 255, 0.30)", stroke: "rgb(120, 190, 255)" },
+        { fill: "rgba(46, 200, 140, 0.30)", stroke: "rgb(90, 230, 170)" },
+        { fill: "rgba(255, 180, 50, 0.30)", stroke: "rgb(255, 205, 90)" },
+        { fill: "rgba(200, 120, 255, 0.30)", stroke: "rgb(220, 170, 255)" },
+        { fill: "rgba(255, 90, 100, 0.30)", stroke: "rgb(255, 140, 150)" },
+        { fill: "rgba(80, 210, 230, 0.30)", stroke: "rgb(130, 230, 245)" }
+      ];
+
+      const stage = document.getElementById("stage");
+      const gridCanvas = document.getElementById("grid");
+      const videoEl = document.getElementById("video");
+      const videoLabel = document.getElementById("video-label");
+      const boxesEl = document.getElementById("boxes");
+      const readout = document.getElementById("readout");
+      const btnUndo = document.getElementById("btn-undo");
+      const btnClear = document.getElementById("btn-clear");
+      const btnSnap = document.getElementById("btn-snap");
+      const btnVideo = document.getElementById("btn-video");
+      const btnExport = document.getElementById("btn-export");
+      const overlay = document.getElementById("overlay");
+      const panelStatus = document.getElementById("panel-status");
+      const exportText = document.getElementById("export-text");
+      const btnClose = document.getElementById("btn-close");
+
+      let boxes = [];
+      let selectedId = null;
+      let undoStack = [];
+      let snapOn = true;
+      let videoMode = 0; // 0 off, 1 full 16:9, 2 fit 60%
+      let nextId = 1;
+      let drag = null;
+
+      function snapV(v) {
+        return snapOn ? Math.round(v / GRID) * GRID : Math.round(v);
+      }
+
+      function clamp(v, min, max) {
+        return Math.max(min, Math.min(max, v));
+      }
+
+      function exportData() {
+        return boxes.map(function (b) {
+          return { x: b.x, y: b.y, w: b.w, h: b.h };
+        });
+      }
+
+      function formatExport(data) {
+        if (!data.length) return "[]";
+        return "[\n" + data.map(function (b) {
+          return '  { "x": ' + b.x + ', "y": ' + b.y + ', "w": ' + b.w + ', "h": ' + b.h + " }";
+        }).join(",\n") + "\n]";
+      }
+
+      function persist() {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(exportData()));
+        } catch (e) {}
+      }
+
+      function loadStored() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (!raw) return;
+          const arr = JSON.parse(raw);
+          if (!Array.isArray(arr)) return;
+          boxes = arr.map(function (b, i) {
+            return {
+              id: nextId++,
+              x: Number(b.x) || 0,
+              y: Number(b.y) || 0,
+              w: Number(b.w) || 0,
+              h: Number(b.h) || 0,
+              color: i % PALETTE.length
+            };
+          }).filter(function (b) { return b.w >= 1 && b.h >= 1; });
+        } catch (e) {}
+      }
+
+      function pushUndo() {
+        undoStack.push(JSON.stringify(boxes));
+        if (undoStack.length > 80) undoStack.shift();
+      }
+
+      function updateReadout() {
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+        const dpr = window.devicePixelRatio || 1;
+        const pw = Math.round(w * dpr);
+        const ph = Math.round(h * dpr);
+        const ok = (w === STAGE_W && h === STAGE_H);
+        readout.className = ok ? "" : "mismatch";
+        readout.innerHTML =
+          '<span class="num">' + w + " × " + h + "</span>" +
+          "  ·  dpr " + dpr.toFixed(2) +
+          "  ·  <span class=\"num\">" + pw + " × " + ph + "</span>";
+      }
+
+      function drawGrid() {
+        const dpr = window.devicePixelRatio || 1;
+        gridCanvas.width = Math.round(STAGE_W * dpr);
+        gridCanvas.height = Math.round(STAGE_H * dpr);
+        gridCanvas.style.width = STAGE_W + "px";
+        gridCanvas.style.height = STAGE_H + "px";
+        const ctx = gridCanvas.getContext("2d");
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, STAGE_W, STAGE_H);
+
+        ctx.strokeStyle = "rgba(255,255,255,0.06)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for (let x = 0; x <= STAGE_W; x += GRID) {
+          if (x % 50 === 0) continue;
+          ctx.moveTo(x + 0.5, 0);
+          ctx.lineTo(x + 0.5, STAGE_H);
+        }
+        for (let y = 0; y <= STAGE_H; y += GRID) {
+          if (y % 50 === 0) continue;
+          ctx.moveTo(0, y + 0.5);
+          ctx.lineTo(STAGE_W, y + 0.5);
+        }
+        ctx.stroke();
+
+        ctx.strokeStyle = "rgba(255,255,255,0.18)";
+        ctx.beginPath();
+        for (let x = 0; x <= STAGE_W; x += 50) {
+          ctx.moveTo(x + 0.5, 0);
+          ctx.lineTo(x + 0.5, STAGE_H);
+        }
+        for (let y = 0; y <= STAGE_H; y += 50) {
+          ctx.moveTo(0, y + 0.5);
+          ctx.lineTo(STAGE_W, y + 0.5);
+        }
+        ctx.stroke();
+
+        ctx.font = "500 10px Inter, sans-serif";
+        ctx.fillStyle = "rgba(255,255,255,0.45)";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "top";
+        const tickTop = BAR_H + 3;
+        for (let x = 50; x < STAGE_W; x += 50) {
+          ctx.fillText(String(x), x, tickTop);
+        }
+        ctx.textAlign = "left";
+        for (let y = 50; y < STAGE_H; y += 50) {
+          if (y <= BAR_H + 12) {
+            ctx.textBaseline = "top";
+            ctx.fillText(String(y), 4, BAR_H + 16);
+          } else if (y + 8 > STAGE_H) {
+            ctx.textBaseline = "bottom";
+            ctx.fillText(String(y), 4, y - 2);
+          } else {
+            ctx.textBaseline = "middle";
+            ctx.fillText(String(y), 4, y);
+          }
+        }
+      }
+
+      function applyVideoMode() {
+        if (videoMode === 0) {
+          videoEl.style.display = "none";
+          videoLabel.style.display = "none";
+          btnVideo.className = "";
+          btnVideo.textContent = "Video";
+          return;
+        }
+        btnVideo.className = "on";
+        videoEl.style.display = "block";
+        videoLabel.style.display = "block";
+        if (videoMode === 1) {
+          btnVideo.textContent = "16:9";
+          videoEl.style.left = "0px";
+          videoEl.style.top = "0px";
+          videoEl.style.width = "773px";
+          videoEl.style.height = "435px";
+          videoLabel.style.left = "0px";
+          videoLabel.style.width = "773px";
+          videoLabel.style.top = "231px";
+          videoLabel.textContent = "773 × 435  ·  16:9";
+        } else {
+          btnVideo.textContent = "60%";
+          videoEl.style.left = "66px";
+          videoEl.style.top = "0px";
+          videoEl.style.width = "641px";
+          videoEl.style.height = "361px";
+          videoLabel.style.left = "66px";
+          videoLabel.style.width = "641px";
+          videoLabel.style.top = "194px";
+          videoLabel.textContent = "641 × 361  ·  fit 60%";
+        }
+      }
+
+      function deleteClass(box) {
+        const nearTop = box.y < BAR_H + 10;
+        const nearRight = box.x + box.w > STAGE_W - 22;
+        const cls = [];
+        if (nearTop) cls.push("delete-inside");
+        if (nearRight) cls.push("delete-flip");
+        return cls.join(" ");
+      }
+
+      function renderBoxes() {
+        boxesEl.innerHTML = "";
+        boxes.forEach(function (box) {
+          const pal = PALETTE[box.color % PALETTE.length];
+          const el = document.createElement("div");
+          const isSel = box.id === selectedId;
+          el.className = "box" + (isSel ? " selected" : "") + (isSel && deleteClass(box) ? " " + deleteClass(box) : "");
+          el.dataset.id = String(box.id);
+          el.style.left = box.x + "px";
+          el.style.top = box.y + "px";
+          el.style.width = box.w + "px";
+          el.style.height = box.h + "px";
+          el.style.background = pal.fill;
+          el.style.borderColor = pal.stroke;
+          el.innerHTML =
+            '<div class="box-xy">' + box.x + "," + box.y + "</div>" +
+            '<div class="box-size">' + box.w + " × " + box.h + "</div>" +
+            '<div class="box-handle" data-role="handle"></div>' +
+            '<button type="button" class="box-delete" data-role="delete" aria-label="Delete">✕</button>';
+          boxesEl.appendChild(el);
+        });
+      }
+
+      function updateBoxEl(box) {
+        const el = boxesEl.querySelector('[data-id="' + box.id + '"]');
+        if (!el) return;
+        el.style.left = box.x + "px";
+        el.style.top = box.y + "px";
+        el.style.width = box.w + "px";
+        el.style.height = box.h + "px";
+        const xy = el.querySelector(".box-xy");
+        const size = el.querySelector(".box-size");
+        if (xy) xy.textContent = box.x + "," + box.y;
+        if (size) size.textContent = box.w + " × " + box.h;
+        if (box.id === selectedId) {
+          const extra = deleteClass(box);
+          el.className = "box selected" + (extra ? " " + extra : "");
+        }
+      }
+
+      function pointFromEvent(e) {
+        const r = stage.getBoundingClientRect();
+        return {
+          x: clamp(e.clientX - r.left, 0, STAGE_W),
+          y: clamp(e.clientY - r.top, 0, STAGE_H)
+        };
+      }
+
+      function hitBoxAt(x, y, fromTop) {
+        for (let i = boxes.length - 1; i >= 0; i--) {
+          const b = boxes[i];
+          if (x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) {
+            if (!fromTop) return b;
+            return b;
+          }
+        }
+        return null;
+      }
+
+      function isInDelete(box, x, y) {
+        const nearTop = box.y < BAR_H + 10;
+        const nearRight = box.x + box.w > STAGE_W - 22;
+        let dx = nearRight ? (nearTop ? box.x + 4 : box.x - 10) : (nearTop ? box.x + box.w - 4 - DELETE : box.x + box.w - DELETE + 10);
+        let dy = nearTop ? box.y + 4 : box.y - 10;
+        return x >= dx && x <= dx + DELETE && y >= dy && y <= dy + DELETE;
+      }
+
+      function isInHandle(box, x, y) {
+        return x >= box.x + box.w - HANDLE && x <= box.x + box.w &&
+               y >= box.y + box.h - HANDLE && y <= box.y + box.h;
+      }
+
+      function onPointerDown(e) {
+        if (overlay.style.display === "block") return;
+        const t = e.target;
+        if (t.closest && t.closest("#bar")) return;
+        if (t.closest && t.closest("#overlay")) return;
+        e.preventDefault();
+        stage.setPointerCapture(e.pointerId);
+        const p = pointFromEvent(e);
+
+        const sel = boxes.find(function (b) { return b.id === selectedId; });
+        if (sel && (t.getAttribute("data-role") === "delete" || isInDelete(sel, p.x, p.y))) {
+          pushUndo();
+          boxes = boxes.filter(function (b) { return b.id !== sel.id; });
+          selectedId = null;
+          renderBoxes();
+          persist();
+          drag = null;
+          return;
+        }
+        if (sel && (t.getAttribute("data-role") === "handle" || isInHandle(sel, p.x, p.y))) {
+          pushUndo();
+          drag = {
+            type: "resize",
+            id: sel.id,
+            startX: p.x,
+            startY: p.y,
+            orig: { x: sel.x, y: sel.y, w: sel.w, h: sel.h },
+            moved: false
+          };
+          return;
+        }
+
+        const hit = (t.closest && t.closest(".box"))
+          ? boxes.find(function (b) { return b.id === Number(t.closest(".box").dataset.id); })
+          : hitBoxAt(p.x, p.y);
+        if (hit) {
+          selectedId = hit.id;
+          renderBoxes();
+          pushUndo();
+          drag = {
+            type: "move",
+            id: hit.id,
+            offsetX: p.x - hit.x,
+            offsetY: p.y - hit.y,
+            orig: { x: hit.x, y: hit.y, w: hit.w, h: hit.h },
+            moved: false
+          };
+          return;
+        }
+
+        if (p.y < BAR_H) return;
+        selectedId = null;
+        renderBoxes();
+        drag = {
+          type: "draw",
+          startX: snapV(p.x),
+          startY: snapV(p.y),
+          id: null
+        };
+      }
+
+      function onPointerMove(e) {
+        if (!drag) return;
+        e.preventDefault();
+        const p = pointFromEvent(e);
+        if (drag.type === "draw") {
+          const x1 = drag.startX;
+          const y1 = drag.startY;
+          const x2 = snapV(p.x);
+          const y2 = snapV(p.y);
+          const x = Math.min(x1, x2);
+          const y = Math.min(y1, y2);
+          const w = Math.abs(x2 - x1);
+          const h = Math.abs(y2 - y1);
+          if (!drag.id) {
+            const box = {
+              id: nextId++,
+              x: x, y: y, w: w, h: h,
+              color: (boxes.length) % PALETTE.length,
+              preview: true
+            };
+            drag.id = box.id;
+            selectedId = box.id;
+            boxes.push(box);
+            renderBoxes();
+          } else {
+            const box = boxes.find(function (b) { return b.id === drag.id; });
+            if (!box) return;
+            box.x = x; box.y = y; box.w = w; box.h = h;
+            updateBoxEl(box);
+          }
+          return;
+        }
+        const box = boxes.find(function (b) { return b.id === drag.id; });
+        if (!box) return;
+        if (drag.type === "move") {
+          let nx = snapV(p.x - drag.offsetX);
+          let ny = snapV(p.y - drag.offsetY);
+          nx = clamp(nx, 0, STAGE_W - box.w);
+          ny = clamp(ny, 0, STAGE_H - box.h);
+          if (nx !== box.x || ny !== box.y) drag.moved = true;
+          box.x = nx;
+          box.y = ny;
+          updateBoxEl(box);
+        } else if (drag.type === "resize") {
+          let rw = snapV(drag.orig.w + (p.x - drag.startX));
+          let rh = snapV(drag.orig.h + (p.y - drag.startY));
+          rw = clamp(rw, MIN_DRAG, STAGE_W - box.x);
+          rh = clamp(rh, MIN_DRAG, STAGE_H - box.y);
+          if (rw !== box.w || rh !== box.h) drag.moved = true;
+          box.w = rw;
+          box.h = rh;
+          updateBoxEl(box);
+        }
+      }
+
+      function onPointerUp(e) {
+        if (!drag) return;
+        if (e) e.preventDefault();
+        if (drag.type === "draw") {
+          const box = boxes.find(function (b) { return b.id === drag.id; });
+          if (!box || box.w < MIN_DRAG || box.h < MIN_DRAG) {
+            if (box) boxes = boxes.filter(function (b) { return b.id !== box.id; });
+            selectedId = null;
+            renderBoxes();
+          } else {
+            delete box.preview;
+            pushUndo();
+            // pushUndo saved state including the new box; fix by replacing last
+            undoStack.pop();
+            const without = boxes.filter(function (b) { return b.id !== box.id; });
+            undoStack.push(JSON.stringify(without));
+            selectedId = box.id;
+            renderBoxes();
+            persist();
+          }
+        } else {
+          if (!drag.moved) {
+            undoStack.pop();
+          } else {
+            persist();
+          }
+          renderBoxes();
+        }
+        drag = null;
+      }
+
+      function undo() {
+        if (!undoStack.length) return;
+        boxes = JSON.parse(undoStack.pop());
+        selectedId = null;
+        renderBoxes();
+        persist();
+      }
+
+      function clearAll() {
+        if (!boxes.length) return;
+        pushUndo();
+        boxes = [];
+        selectedId = null;
+        renderBoxes();
+        persist();
+      }
+
+      function cycleVideo() {
+        videoMode = (videoMode + 1) % 3;
+        applyVideoMode();
+      }
+
+      function toggleSnap() {
+        snapOn = !snapOn;
+        btnSnap.className = snapOn ? "on" : "";
+      }
+
+      function showExport(copied, failed) {
+        const json = formatExport(exportData());
+        exportText.value = json;
+        panelStatus.textContent = copied
+          ? "Copied to clipboard"
+          : "Clipboard unavailable — copy from here";
+        panelStatus.className = copied ? "" : "fail";
+        overlay.style.display = "block";
+      }
+
+      function doExport() {
+        const json = formatExport(exportData());
+        exportText.value = json;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(json).then(function () {
+            showExport(true);
+          }).catch(function () {
+            showExport(false);
+          });
+        } else {
+          showExport(false);
+        }
+      }
+
+      stage.addEventListener("pointerdown", onPointerDown);
+      stage.addEventListener("pointermove", onPointerMove);
+      stage.addEventListener("pointerup", onPointerUp);
+      stage.addEventListener("pointercancel", onPointerUp);
+      stage.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+
+      btnUndo.addEventListener("click", function (e) { e.stopPropagation(); undo(); });
+      btnClear.addEventListener("click", function (e) { e.stopPropagation(); clearAll(); });
+      btnSnap.addEventListener("click", function (e) { e.stopPropagation(); toggleSnap(); });
+      btnVideo.addEventListener("click", function (e) { e.stopPropagation(); cycleVideo(); });
+      btnExport.addEventListener("click", function (e) { e.stopPropagation(); doExport(); });
+      btnClose.addEventListener("click", function (e) {
+        e.stopPropagation();
+        overlay.style.display = "none";
+      });
+      overlay.addEventListener("pointerdown", function (e) {
+        if (e.target === overlay) overlay.style.display = "none";
+      });
+
+      window.addEventListener("resize", function () {
+        updateReadout();
+        drawGrid();
+      });
+
+      loadStored();
+      updateReadout();
+      drawGrid();
+      applyVideoMode();
+      renderBoxes();
+
+      window.__viewportMeasure = {
+        getBoxes: function () { return exportData(); },
+        setBoxes: function (arr) {
+          boxes = (arr || []).map(function (b, i) {
+            return {
+              id: nextId++,
+              x: b.x, y: b.y, w: b.w, h: b.h,
+              color: (b.color != null ? b.color : i) % PALETTE.length
+            };
+          });
+          selectedId = null;
+          renderBoxes();
+          persist();
+        },
+        setVideo: function (mode) { videoMode = mode; applyVideoMode(); },
+        setSelected: function (index) {
+          selectedId = boxes[index] ? boxes[index].id : null;
+          renderBoxes();
+        },
+        setSnap: function (on) { snapOn = !!on; btnSnap.className = snapOn ? "on" : ""; },
+        showExport: doExport,
+        getState: function () {
+          return { boxes: exportData(), snapOn: snapOn, videoMode: videoMode, selectedId: selectedId };
+        }
+      };
+    })();
+  </script>
+</body>
+</html>
